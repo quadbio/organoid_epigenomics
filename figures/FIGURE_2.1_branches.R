@@ -1,3 +1,4 @@
+library(tidyverse)
 source('~/scripts/single_cell/de.R')
 source('~/scripts/single_cell/atac.R')
 source('~/scripts/perturbator/de.R')
@@ -15,18 +16,17 @@ mark_colors <- c('H3K4me3'='#CB9ACA', 'H3K27me3'='#3AAFC3', 'H3K27ac'='#5FBE9B',
 
 
 #### Read data ####
-marks <- read_rds('data/CT/all_marks_list_v3.3motifs.rds')
+marks <- read_rds('data/all_marks_list_v3.3motifs.rds')
 
-
-lineage_early_da_files <- list.files('data/results/diff_expression', pattern='*lineage_early.tsv', full.names=T)
+lineage_early_da_files <- list.files('data_/results/diff_expression', pattern='*lineage_early.tsv', full.names=T)
 names(lineage_early_da_files) <- str_replace(lineage_early_da_files, '.+expression/(.+)_DA_.+', '\\1')
 lineage_early_da_list <- lineage_early_da_files %>% map(read_tsv)
 
-lineage_coarse_da_files <- list.files('data/results/diff_expression', pattern='*lineage_coarse.tsv', full.names=T)
+lineage_coarse_da_files <- list.files('data_/results/diff_expression', pattern='*lineage_coarse.tsv', full.names=T)
 names(lineage_coarse_da_files) <- str_replace(lineage_coarse_da_files, '.+expression/(.+)_DA_.+', '\\1')
 lineage_coarse_da_list <- lineage_coarse_da_files %>% map(read_tsv)
 
-lineage_da_files <- list.files('data/results/diff_expression', pattern='*lineage_all.tsv', full.names=T)
+lineage_da_files <- list.files('data_/results/diff_expression', pattern='*lineage_all.tsv', full.names=T)
 names(lineage_da_files) <- str_replace(lineage_da_files, '.+expression/(.+)_DA_.+', '\\1')
 lineage_da_list <- lineage_da_files %>% map(read_tsv)
 
@@ -138,7 +138,6 @@ all_top_peaks %>% write_tsv('data/results/diff_expression/all_marks_top_DA_linea
 
 all_peaks <- bind_rows('H3K27me3'=H3K27me3_da, 'H3K27ac'=H3K27ac_da, 'H3K4me3'=H3K4me3_da, .id='mark')
 all_peaks %>% write_tsv('data/results/diff_expression/all_marks_DA_lineage_coarse.tsv')
-
 
 
 #### Peak expression heatmap with all marks ####
@@ -381,11 +380,11 @@ K27_isect_matches %>% write_tsv('data/intersect/H3K27_switches_marks_intersect_m
 
 
 #### Filter DA peaks by intersections ####
-K27_isect_matches <- read_tsv('data/intersect/H3K27_switches_marks_intersect_matches.tsv')
+K27_isect_matches <- read_tsv('data_/intersect/H3K27_switches_marks_intersect_matches.tsv')
 # all_lineage_da <- read_tsv('data/results/diff_expression/all_marks_lineage_DA.tsv')
 # all_DA_df <- bind_rows('H3K27ac'=H3K27ac_da, 'H3K27me3'=H3K27me3_da, 'H3K4me3'=H3K4me3_da, .id='mark') %>% 
 #     filter(group!='psc', feature%in%all_lineage_da$feature)
-all_DA_df <- read_tsv('data/results/diff_expression/all_marks_lineage_DA.tsv')
+all_DA_df <- read_tsv('data_/results/diff_expression/all_marks_lineage_DA.tsv')
 
 
 # H3K27ac
@@ -479,6 +478,11 @@ p2 <- ggplot(plot_df, aes(mark, isect, fill=p_clip)) +
 p1 | p2
 
 ggsave('plots/paper/fig2/fig2_H3K27me3_H3K27ac_switches_DA_peaks_pval_heatmap.pdf', width=6, height=10)
+
+
+plot_df %>% write_tsv('data_/CT/switching_peaks.tsv')
+
+
 
 
 
@@ -790,11 +794,11 @@ Kme_isect_matches %>% write_tsv('data/intersect/H3Kme_bivalent_marks_intersect_m
 
 
 #### Filter DA peaks by intersections ####
-Kme_isect_matches <- read_tsv('data/intersect/H3Kme_bivalent_marks_intersect_matches.tsv')
+Kme_isect_matches <- read_tsv('data_/intersect/H3Kme_bivalent_marks_intersect_matches.tsv')
 # all_lineage_da <- read_tsv('data/results/diff_expression/all_marks_lineage_DA.tsv')
 # all_DA_df <- bind_rows('H3K4me3'=H3K4me3_da, 'H3K27me3'=H3K27me3_da, 'H3K4me3'=H3K4me3_da, .id='mark') %>% 
 #     filter(group!='psc', feature%in%all_lineage_da$feature)
-all_DA_df <- read_tsv('data/results/diff_expression/all_marks_lineage_DA.tsv')
+all_DA_df <- read_tsv('data_/results/diff_expression/all_marks_lineage_DA.tsv')
 
 
 # H3K4me3
@@ -888,6 +892,11 @@ p1 | p2
 ggsave('plots/paper/fig2/fig2_H3K27me3_H3K4me3_bivalent_DA_peaks_pval_heatmap.pdf', width=6, height=10)
 
 
+plot_df %>% write_tsv('data_/CT/bivalent_peaks.tsv')
+
+
+
+
 ## Color by expression
 H3K27ac_expr_df <- expr_plot_df %>% 
     filter(mark=='H3K27ac') %>% 
@@ -936,7 +945,7 @@ expr_plot_df <- Kme_da_rbind %>%
         cluster=factor(cluster, levels=c(3,10,2,8,5,4,1,9,6,7)),
         group=factor(group, levels=group_order)
     ) %>% group_by(isect, mark, group, max_group, cluster) %>% 
-    summarize(H3K4me3_expr=mean(H3K4me3_expr), H3K27me3_expr=mean(H3K27me3_expr))
+    dplyr::summarize(H3K4me3_expr=mean(H3K4me3_expr), H3K27me3_expr=mean(H3K27me3_expr))
 
 p1 <- ggplot(filter(expr_plot_df, mark=='H3K4me3'), aes(group, isect, fill=H3K4me3_expr)) +
     geom_tile() +
@@ -968,6 +977,8 @@ p2
 )
 ggsave('plots/paper/fig2/fig2_H3K27me3_H3K4me3_bivalent_DA_peaks_expr_heatmap.pdf', width=8, height=10)
 
+
+expr_plot_df %>% write_tsv('data_/CT/bivalent_peaks_expr.tsv')
 
 
 #### Get regions and coverage for ridge plots ####
@@ -1602,13 +1613,13 @@ all_stage_detect <- prom_isect_matches %>%
     inner_join(H3K27me3_ctx_stage_detect, by=c('stage', 'H3K27me3'='peak'), suffix=c('_H3K27ac','_H3K27me3')) %>% 
     inner_join(H3K4me3_ctx_stage_detect, by=c('stage', 'H3K4me3'='peak'), suffix=c('','_H3K4me3')) 
     
-H3K27ac_q <- H3K27ac_ctx_stage_detect$detect %>% quantile(0.80)
-H3K27me3_q <- H3K27me3_ctx_stage_detect$detect %>% quantile(0.80)
-H3K4me3_q <- H3K4me3_ctx_stage_detect$detect %>% quantile(0.80)
+H3K27ac_q <- H3K27ac_ctx_stage_detect$detect %>% quantile(0.75)
+H3K27me3_q <- H3K27me3_ctx_stage_detect$detect %>% quantile(0.75)
+H3K4me3_q <- H3K4me3_ctx_stage_detect$detect %>% quantile(0.75)
 
-H3K27ac_q <- 0.02
-H3K27me3_q <- 0.02
-H3K4me3_q <- 0.02
+# H3K27ac_q <- 0.02
+# H3K27me3_q <- 0.02
+# H3K4me3_q <- 0.02
 
 all_stage_class <- all_stage_detect %>% 
     mutate(
@@ -1672,8 +1683,42 @@ all_class_genes$gene_name %>% unique
 all_class_genes %>% write_tsv('data/trajectories/ctx/ctx_traject_ptbin25_peak_class.tsv')
 
 
-b1_bival <- all_class_genes %>% filter(stage%in%c(1:2), peak_class=='bivalent') %>% pull(gene_name) %>% unique
+all_class_genes <- read_tsv('data_/trajectories/ctx/ctx_traject_ptbin25_peak_class.tsv') %>% 
+    mutate(peak_class=factor(peak_class, levels=c('H3K27me3', 'bivalent', 'H3K4me3', 'promoter', 'H3K27ac', 'gone')))
+
+
+ctx_gene_classes <- all_class_genes %>% 
+    dplyr::filter(stage>15) %>% 
+    dplyr::distinct(stage, peak_class, gene_name) %>% 
+    dplyr::group_by(gene_name) %>% 
+    dplyr::mutate(
+        frac_bivalent=sum(peak_class=='bivalent')/n(),
+        frac_H3K27me3=sum(peak_class=='H3K27me3')/n(),
+        frac_H3K27ac=sum(peak_class=='H3K27ac')/n(),
+        frac_promoter=sum(peak_class=='promoter')/n()
+    )
+    
+
+ggplot(all_class_genes, aes(stage, fill=peak_class)) +
+    geom_bar(position='fill', alpha=0.8) +
+    scale_fill_manual(values=modality_colors) +
+    article_text()
+
+
+
 b25_bival <- all_class_genes %>% filter(stage%in%c(23:25), peak_class=='bivalent') %>% pull(gene_name) %>% unique
+b25_bival %>% write('data_/trajectories/ctx/ctx_traject_ptbin25_bival_neurons.txt')
+
+full_H3K27me3 <- ctx_gene_classes %>% filter(frac_H3K27me3>0.9) %>% pull(gene_name) %>% setdiff(b25_bival) %>% unique()
+full_H3K27me3 %>% write('data_/trajectories/ctx/ctx_traject_ptbin25_mostly_H3K27me3.txt')
+
+full_H3K27ac <- ctx_gene_classes %>% filter(frac_H3K27ac>0.9) %>% pull(gene_name) %>% setdiff(b25_bival) %>% unique()
+full_H3K27ac %>% write('data_/trajectories/ctx/ctx_traject_ptbin25_mostly_H3K27ac.txt')
+
+dynamic_other <- ctx_gene_classes$gene_name %>% setdiff(b25_bival) %>% setdiff(full_H3K27me3) %>% setdiff(full_H3K27ac) %>% unique()
+dynamic_other %>% write('data_/trajectories/ctx/ctx_traject_ptbin25_other_dynamic.txt')
+
+
 nepi_bival <- all_class_genes %>% filter(stage%in%c(4:14), peak_class=='bivalent') %>% pull(gene_name) %>% unique
 npc_bival <- all_class_genes %>% filter(stage%in%c(15:22), peak_class=='bivalent') %>% pull(gene_name) %>% unique
 
@@ -1683,6 +1728,8 @@ intersect(b25_bival, b1_bival)
 intersect(nepi_bival, b1_bival)
 
 setdiff(nepi_bival, b1_bival)
+
+
 
 
 
@@ -1833,7 +1880,7 @@ repressed_peaks_df <- enframe(repressed_genes, 'gene', 'max_repr')
 expressed_genes_df <- enframe(expressed_genes, 'gene', 'max_expr')
 pc_genes <- gene_annot %>% as_tibble() %>% filter(gene_biotype=='protein_coding') %>% pull(gene_name) %>% unique()
 
-plot_df <- full_join(repressed_peaks_df, expressed_genes_df) %>% 
+repr_groups <- full_join(repressed_peaks_df, expressed_genes_df) %>% 
     mutate(
         max_expr=replace_na(max_expr, 0), 
         max_repr=replace_na(max_repr, 0),
@@ -1845,6 +1892,7 @@ plot_df <- full_join(repressed_peaks_df, expressed_genes_df) %>%
             T ~ 'not expressed & not repressed',
     )) %>% filter(is_pc)
 
+plot_df <- repr_groups
 p1 <- ggplot(plot_df, aes(max_repr, max_expr, color=class)) +
     geom_point(size=0.2, alpha=0.5) +
     geom_hline(yintercept=0.05) +
@@ -1861,73 +1909,117 @@ p1 + p2
 
 
 
+
 #### GO enrichment ####
 library(clusterProfiler)
 library(org.Hs.eg.db)
+go_enrich <- function(features, background, p_adjust_method='fdr', ontology='BP', ...){
+    require(clusterProfiler)
+    require(org.Hs.eg.db)
+    
+    all_features <- bitr(background, fromType='SYMBOL', toType=c('ENTREZID'), OrgDb=org.Hs.eg.db) %>% 
+        as_tibble()
+    
+    gene_ids <- filter(all_features, SYMBOL%in%features)
+    
+    ggo <- enrichGO(
+        gene = unique(gene_ids$ENTREZID), 
+        universe = unique(all_features$ENTREZID),
+        OrgDb = org.Hs.eg.db,
+        readable = T,
+        pAdjustMethod = p_adjust_method,
+        ont = ontology,
+        ...
+    )
+    res <- as_tibble(ggo@result) %>% 
+        rename('count'=Count) %>% 
+        mutate(
+            fg_in = as.numeric(str_replace(GeneRatio, '(\\d+)/(\\d+)', '\\1')),
+            fg_out = as.numeric(str_replace(GeneRatio, '(\\d+)/(\\d+)', '\\2')),
+            bg_in = as.numeric(str_replace(BgRatio, '(\\d+)/(\\d+)', '\\1')),
+            bg_out = as.numeric(str_replace(BgRatio, '(\\d+)/(\\d+)', '\\2')),
+            odds_ratio = (fg_in/fg_out) / (bg_in/bg_out),
+            log2_odds_ratio = log2(odds_ratio)
+        )
+    
+    return(res)
+}
 
-genes_test <- plot_df %>% 
-    filter(class=='not expressed & not repressed') %>% 
-    pull(gene) %>% unique()
+gene_groups <- repr_groups %>% 
+    group_by(class) %>% group_split() %>% 
+    {names(.) <- map_chr(., ~.x$class[1]);.} %>% 
+    map(~unique(.x$gene)) 
 
-feats_use <- plot_df$gene %>% unique()
+names(gene_groups) <- str_replace_all(names(gene_groups), ' ', '_') %>% str_replace_all('_&', '') 
 
-all_features <- bitr(feats_use, fromType = 'SYMBOL', toType = c('ENSEMBL', 'ENTREZID'), OrgDb = org.Hs.eg.db) %>% 
-    as_tibble()
+gene_groups_go <- map_dfr(gene_groups, function(x){
+    go_enrich(x, background=repr_groups$gene)
+}, .id='gene_group')
 
-gene_ids <- filter(all_features, SYMBOL%in%genes_test)
-
-ggo <- enrichGO(
-    gene = gene_ids$ENTREZID, 
-    universe = all_features$ENTREZID,
-    OrgDb = org.Hs.eg.db,
-    pvalueCutoff = 1,
-    qvalueCutoff = 1,
-    pAdjustMethod = 'fdr',
-    ont = 'BP',
-    readable = T
-)
-
-
-
-genes_test <- plot_df %>% 
-    filter(class=='not expressed & repressed') %>% 
-    pull(gene) %>% unique()
-
-gene_ids <- filter(all_features, SYMBOL%in%genes_test)
-
-ggo <- enrichGO(
-    gene = gene_ids$ENTREZID, 
-    universe = all_features$ENTREZID,
-    OrgDb = org.Hs.eg.db,
-    pvalueCutoff = 1,
-    qvalueCutoff = 1,
-    pAdjustMethod = 'fdr',
-    ont = 'BP',
-    readable = T
-)
-
-
-
-
-
+gene_groups_go %>% write_tsv('data_/results/enrichment/gene_groups_go_enrich.tsv')
 
 
 
 
+#### Motif enrich ####
+#### Enrichment in merged regions ####
+tf_motif_enrichment <- function(regions, motifs, background_regions, parallel=T){
+    data(motif2tf)
+    group_vec <- background_regions %in% regions
+    map_par(colnames(motifs), function(mot){
+        ctab <- table(motifs[background_regions, mot], group_vec)
+        ftest <- try(fisher.test(ctab))
+        if (any(class(ftest)=='try-error')){
+            return(tibble())
+        }
+        return(tibble(
+            motif = mot,
+            pval = ftest$p.value,
+            odds_ratio = ftest$estimate
+        ))
+    }, parallel=parallel) %>% 
+        dplyr::bind_rows() %>% 
+        dplyr::mutate(padj=p.adjust(pval, 'fdr')) %>%
+        dplyr::mutate(logodds=log2(odds_ratio)) %>%
+        dplyr::inner_join(motif2tf, multiple = "all") %>%
+        return()
+}
+
+all_bg <- peak_meta$repr_region %>% unique() %>% StringToGRanges()
+all_peaks_srt <- read_rds('data05/regions/all_regions_v2_max01_clust50_srt.rds')
+all_motif_mat <- read_rds('data_/all_peaks/all_motifs.rds')
+
+gene_ranges_use <- CollapseToLongestTranscript(gene_annot)
+
+library(doParallel)
+registerDoParallel(40)
+
+gene_groups_tf_mot <- map_dfr(gene_groups, function(x){
+    gene_ranges_use <- gene_ranges_use[gene_ranges_use$gene_name%in%x]
+    gene2peaks <- find_peaks_near_genes(all_bg, gene_ranges_use, distance=4000, only_tss=T)
+    peaks_use <- rownames(gene2peaks)[rowMaxs(gene2peaks)>0] 
+    tf_enrich <- tf_motif_enrichment(peaks_use, all_motif_mat, GRangesToString(all_bg), parallel=T)
+    return(tf_enrich)
+}, .id='gene_group')
+gene_groups_tf_mot %>% write_tsv('data_/results/enrichment/gene_groups_tf_promoter_enrich.tsv')
+gene_groups_tf_mot <- read_tsv('data_/results/enrichment/gene_groups_tf_promoter_enrich.tsv')
 
 
-
-
-
-
-
-
+gene_groups_tf_mot <- map_dfr(gene_groups, function(x){
+    gene_ranges_use <- gene_ranges_use[gene_ranges_use$gene_name%in%x]
+    gene2peaks <- find_peaks_near_genes(all_bg, gene_ranges_use, distance=4000)
+    peaks_use <- rownames(gene2peaks)[rowMaxs(gene2peaks)>0] 
+    tf_enrich <- tf_motif_enrichment(peaks_use, all_motif_mat, GRangesToString(all_bg), parallel=T)
+    return(tf_enrich)
+}, .id='gene_group')
+gene_groups_tf_mot %>% write_tsv('data_/results/enrichment/gene_groups_tf_enrich.tsv')
+gene_groups_tf_mot <- read_tsv('data_/results/enrichment/gene_groups_tf_enrich.tsv')
 
 
 
 ##### Graph abstraction #####
 library(ggraph)
-cluster_graph <- read_rds('data/RNA/all_RNA_cluster_graph.rds')
+cluster_graph <- read_rds('data/noastro_RNA_cluster_graph.rds')
 
 set.seed(9)
 ggraph(cluster_graph, layout='fr') +
@@ -1966,7 +2058,7 @@ ggsave('plots/paper/fig2/fig2_celltype_jf_umap.png', width=7, height=5)
 
 
 #### Feature plots on graph abstraction ####
-cluster_srt <- read_rds('data/RNA/all_RNA_marks_combined_clusters_srt.rds')
+cluster_srt <- read_rds('data/noastro_RNA_marks_combined_clusters_srt.rds')
 
 goi <- c('VSX2', 'LHX5', 'FOXG1', 'NFIX', 'WLS', 'NEUROD2')
 
@@ -2006,8 +2098,8 @@ p_K4me3 <- feature_plot(cluster_srt, features=goi, pt.size=2.5) &
     scale_color_gradientn(colors=gyrdpu2())
 
 p_K27ac | p_K27me3 | p_K4me3 | p_rna 
-ggsave('plots/paper/fig2/fig2_feature_cluster_umap.png', width=15, height=6)
-ggsave('plots/paper/fig2/fig2_feature_cluster_umap.pdf', width=15, height=6)
+ggsave('plots/paper/fig2/rev_fig2_feature_cluster_umap.png', width=15, height=6)
+ggsave('plots/paper/fig2/rev_fig2_feature_cluster_umap.pdf', width=15, height=6)
 
 
 cluster_srt@active.assay <- 'RNA'
@@ -2027,8 +2119,19 @@ p_K4me3 <- feature_plot(cluster_srt, features=goi, pt.size=2.5, reduction='fr') 
     scale_color_gradientn(colors=gyrdpu2())
 
 p_K27ac | p_K27me3 | p_K4me3 | p_rna 
-ggsave('plots/paper/fig2/fig2_feature_cluster_fr.png', width=18, height=7)
-ggsave('plots/paper/fig2/fig2_feature_cluster_fr.pdf', width=18, height=7)
+ggsave('plots/paper/fig2/rev_fig2_feature_cluster_fr.png', width=18, height=7)
+ggsave('plots/paper/fig2/rev_fig2_feature_cluster_fr.pdf', width=18, height=7)
+
+
+nn_graph_fr <- read_rds('data/noastro_RNA_cluster_graph.rds')
+
+ggraph(nn_graph_fr, x=FR1, y=FR2) +
+    geom_edge_link(alpha=0.1) +
+    geom_node_point(aes(color=celltype), size=4) +
+    scale_color_manual(values=pantone_celltype) +
+    theme_void()
+ggsave('plots/paper/fig2/rev_fig2_celltype_cluster_fr.png', width=7, height=6)
+ggsave('plots/paper/fig2/rev_fig2_celltype_cluster_fr.pdf', width=7, height=6)
 
 
 
@@ -2056,6 +2159,10 @@ genes_plot <- c(
     'OTX1','OTX2','FOXB1','ZIC5','ZIC2','LHX5','WLS','MID1',
     'PRICKLE1','WWTR1','FZD5','FOXO1','COX9','SMG6','ANXA2'
 ) %>% intersect(mark_feats)
+
+genes_plot <- c('INTU','EGR1','B3GAT2','POU3F3','DCLK2','SNCAIP','HOPX','PAG1',
+                'TRIM9','LRRC3B','LHX2','NR2F1','POU3F2','ZEB1','MAPRE2','RCN1',
+                'EFNB1','PAX6','EMX2','NR2F2','FEZF2','ARX') %>% intersect(mark_feats)
 
 H3K27ac_expr <- H3K27ac_clusters[, genes_plot] %>% t() %>% 
     as_tibble(rownames='gene') %>% 
@@ -2092,7 +2199,7 @@ p2 <- ggplot(plot_df, aes(as.numeric(pt_bins), expr, color=modality)) +
     labs(x='Pseudotime bins', y='Expression', color='Modality')
 
 p1 / p2 + plot_layout(heights=c(1,3))
-ggsave('plots/paper/fig2/fig2_ctx_pt_gene_expr_line.pdf', width=25, height=5)
+ggsave('plots/paper/fig3/fig3_ctx_pt_gene_expr_line.pdf', width=25, height=5)
 
 
 
@@ -2104,18 +2211,22 @@ ggsave('plots/paper/fig2/fig2_ctx_pt_gene_expr_line.pdf', width=25, height=5)
 H3K27ac_ctx_subs[['cRNA_bin']] <- CreateAssayObject((H3K27ac_ctx_subs[['cRNA']]@data > 0)*1)
 H3K27me3_ctx_subs[['cRNA_bin']] <- CreateAssayObject((H3K27me3_ctx_subs[['cRNA']]@data > 0)*1)
 H3K4me3_ctx_subs[['cRNA_bin']] <- CreateAssayObject((H3K4me3_ctx_subs[['cRNA']]@data > 0)*1)
+rna_ctx_subs[['RNA_bin']] <- CreateAssayObject((rna_ctx_subs[['RNA']]@data > 0)*1)
 
 H3K27ac_ctx_subs <- Pando::aggregate_assay(H3K27ac_ctx_subs, assay='cRNA_bin', group_name='pt_bins')
 H3K27me3_ctx_subs <- Pando::aggregate_assay(H3K27me3_ctx_subs, assay='cRNA_bin', group_name='pt_bins')
 H3K4me3_ctx_subs <- Pando::aggregate_assay(H3K4me3_ctx_subs, assay='cRNA_bin', group_name='pt_bins')
+rna_ctx_subs <- Pando::aggregate_assay(rna_ctx_subs, assay='RNA_bin', group_name='pt_bins')
 
 H3K27ac_cluster_detect <- H3K27ac_ctx_subs@assays$cRNA@misc$summary$pt_bins[as.character(1:50), mark_feats]
 H3K27me3_cluster_detect <- H3K27me3_ctx_subs@assays$cRNA@misc$summary$pt_bins[as.character(1:50), mark_feats]
 H3K4me3_cluster_detect <- H3K4me3_ctx_subs@assays$cRNA@misc$summary$pt_bins[as.character(1:50), mark_feats]
+rna_cluster_detect <- rna_ctx_subs@assays$RNA@misc$summary$pt_bins[as.character(1:50),]
 
 H3K27ac_maxdetect_feats <- colMaxs(H3K27ac_cluster_detect)
 H3K27me3_maxdetect_feats <- colMaxs(H3K27me3_cluster_detect)
 H3K4me3_maxdetect_feats <- colMaxs(H3K4me3_cluster_detect)
+rna_maxdetect_feats <- colMaxs(rna_cluster_detect)
 
 mark_detect_feats <- mark_feats[
     (H3K27ac_maxdetect_feats > 0.02) & (H3K27me3_maxdetect_feats > 0.02) & (H3K4me3_maxdetect_feats > 0.02)
@@ -2198,71 +2309,6 @@ all_smooths_raw_list <- map(purrr::set_names(colnames(rna_smooths)), function(n)
 
 
 
-#### Look for lagging genes with transfer entropy ####
-library(doParallel)
-library(RTransferEntropy)
-
-
-registerDoParallel(36)
-all_smooths_te <- map_par(all_smooths_list, function(x){
-    transfer_entropy(x[,'H3K27ac'],x[,'rna'],entropy='R')
-}, parallel=T)
-
-
-all_smooths_te_coefs <- map(all_smooths_te, ~.x$coef)
-
-all_smooths_te_df <- map(all_smooths_te_coefs, ~.x[,'te']) %>% 
-    bind_rows(.id='gene') %>% 
-    pivot_longer(!gene, names_to='direction', values_to='TE')
-
-all_smooths_tr_p_df <- map(all_smooths_te_coefs, ~.x[,'p-value']) %>% 
-    bind_rows(.id='gene') %>% 
-    pivot_longer(!gene, names_to='direction', values_to='pval')
-
-all_smooths_te <- inner_join(all_smooths_te_df, all_smooths_tr_p_df)
-
-
-ggplot(all_smooths_te, aes(TE)) +
-    geom_histogram() +
-    facet_wrap(~direction)
-
-genes_plot <- all_smooths_te %>% 
-    filter(direction=='Y->X', pval<0.05) %>% 
-    top_n(10, TE) %>% 
-    pull(gene)
-
-H3K27ac_expr <- H3K27ac_clusters[, genes_plot] %>% t() %>% 
-    as_tibble(rownames='gene') %>% 
-    pivot_longer(!gene, names_to='pt_bins', values_to='expr')
-
-rna_expr <- rna_clusters[, genes_plot] %>% t() %>% 
-    as_tibble(rownames='gene') %>% 
-    pivot_longer(!gene, names_to='pt_bins', values_to='expr')
-
-plot_df <- bind_rows('H3K27ac'=H3K27ac_expr, 'RNA'=rna_expr, .id='modality') %>% 
-    group_by(modality, gene) %>% 
-    mutate(expr=scale01(expr))
-
-p1 <- ggplot(plot_df, aes(as.numeric(pt_bins), expr, color=modality, group=modality)) +
-    geom_smooth(method=mgcv::gam, formula = y ~ s(x, bs = 'cs')) +
-    # geom_point(size=0.2) +
-    scale_color_manual(values=mod_colors) +
-    facet_grid(~gene, scales='free') +
-    labs(x='Pseudotime bins', y='Expression', color='Modality')
-
-p2 <- ggplot(plot_df, aes(as.numeric(pt_bins), expr, color=modality)) +
-    geom_smooth(method=mgcv::gam, formula = y ~ s(x, bs = 'cs')) +
-    geom_point(size=0.2) +
-    scale_color_manual(values=mod_colors) +
-    facet_grid(modality~gene, scales='free') +
-    labs(x='Pseudotime bins', y='Expression', color='Modality')
-
-p1 / p2
-
-
-
-
-
 #### Distances with DTW and L2 (euclidean) ####
 library(dtw)
 library(doParallel)
@@ -2292,7 +2338,7 @@ library(FCPS)
 set.seed(111)
 dtw_kmeans <- FCPS::kmeansClustering(
     DataOrDistances = dtw_smooth_dist_mat,
-    ClusterNo = 10
+    ClusterNo = 30
 )
 
 dtw_kmeans_df <- dtw_kmeans$Cls %>% enframe('feature', 'dtw_clust')
@@ -2329,7 +2375,7 @@ plot_df <- all_gene_smooths_df %>%
         expr01=scale01(expr), 
         pt_bin_mod=paste0(modality, pt_bin),
         feature=factor(feature, levels=purrr::reduce(cluster_hclust_order, c)),
-        dtw_clust=factor(dtw_clust, levels=c(7,4,1,6,10,9,8,3,2,5))
+        # dtw_clust=factor(dtw_clust, levels=c(7,1,6,10,4,9,8,2,3,5))
     )
 
 ggplot(plot_df, aes(pt_bin, feature, fill=expr01)) +
@@ -2340,7 +2386,9 @@ ggplot(plot_df, aes(pt_bin, feature, fill=expr01)) +
     theme(
         panel.border = element_blank()
     )
-ggsave('plots/paper/fig2/fig2_ctx_gam_smooth_10clust_labels_heatmap.pdf', width=15, height=35)
+ggsave('plots/paper/fig3/fig3_ctx_gam_smooth_30clust_labels_heatmap.pdf', width=15, height=60, limitsize=FALSE)
+ggsave('plots/paper/fig3/fig3_ctx_gam_smooth_30clust_labels_heatmap.png', width=15, height=60, limitsize=FALSE)
+
 
 
 ggplot(plot_df, aes(pt_bin, feature, fill=expr01)) +
@@ -2355,126 +2403,59 @@ ggplot(plot_df, aes(pt_bin, feature, fill=expr01)) +
         panel.spacing = unit(0.1, 'cm')
     ) + no_legend() +
     labs(x='Pseudotime bin', y='Feature')
-ggsave('plots/paper/fig2/fig2_ctx_gam_smooth_10clust_heatmap.pdf', width=6, height=8, unit='cm')
+ggsave('plots/paper/fig3/fig3_ctx_gam_smooth_30clust_heatmap.pdf', width=6, height=15, unit='cm')
+ggsave('plots/paper/fig3/fig3_ctx_gam_smooth_30clust_heatmap.pdf', width=6, height=15, unit='cm')
 
 
-plot_df %>% ungroup() %>% distinct(feature, dtw_clust) %>% write_tsv('data/trajectories/ctx/all_mod_pseudotime_genes_dtw_clust.tsv')
+plot_df %>% ungroup() %>% distinct(feature, dtw_clust) %>% write_tsv('data/trajectories/ctx/all_mod_pseudotime_genes_expr_dtw_30clust.tsv')
 
 
+#### GO enrichment of clusters ####
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(doParallel)
+registerDoParallel(10)
 
+gene_clusters <- read_tsv('data/trajectories/ctx/all_mod_pseudotime_genes_expr_dtw_30clust.tsv')
 
-#### Match bin means by max corr ####
-#### Subset cortex late ####
-library(dtw)
+# Against all RNA features
+feats_use <- all_var_feats %>% 
+    filter(modality=='RNA') %>% 
+    top_n(6000, vst.variance) %>% 
+    pull(feature) 
 
-rna_ctx_late <- rna_ctx_subs %>% subset(lineage=='ctx' & age=='4mo')
-H3K27ac_ctx_late <- H3K27ac_ctx_subs %>% subset(lineage=='ctx' & age=='4mo')
-H3K27me3_ctx_late <- H3K27me3_ctx_subs %>% subset(lineage=='ctx' & age=='4mo')
-H3K4me3_ctx_late <- H3K4me3_ctx_subs %>% subset(lineage=='ctx' & age=='4mo')
+all_features <- clusterProfiler::bitr(feats_use, fromType = 'SYMBOL', toType = c('ENSEMBL', 'ENTREZID'), OrgDb = org.Hs.eg.db) %>%
+    as_tibble()
 
-### Rescale pt 
-rna_ctx_late$ctx_pt <- rank(rna_ctx_late$ctx_pt) / max(rank(rna_ctx_late$ctx_pt))
-H3K27ac_ctx_late$ctx_pt <- rank(H3K27ac_ctx_late$ctx_pt) / max(rank(H3K27ac_ctx_late$ctx_pt))
-H3K27me3_ctx_late$ctx_pt <- rank(H3K27me3_ctx_late$ctx_pt) / max(rank(H3K27me3_ctx_late$ctx_pt))
-H3K4me3_ctx_late$ctx_pt <- rank(H3K4me3_ctx_late$ctx_pt) / max(rank(H3K4me3_ctx_late$ctx_pt))
+cluster_ego <- map_par(set_names(unique(gene_clusters$dtw_clust)), function(x){
+    clust_genes <- filter(gene_clusters, dtw_clust==x)$feature %>% unique()
+    gene_ids <- filter(all_features, SYMBOL%in%clust_genes)
+    ego <- enrichGO(
+        gene = gene_ids$ENTREZID,
+        universe = all_features$ENTREZID,
+        OrgDb = org.Hs.eg.db,
+        pvalueCutoff = 0.05,
+        # qvalueCutoff = 0.05,
+        pAdjustMethod = 'fdr',
+        ont = 'ALL',
+        readable = T
+    )
+    print(ego)
+    return(ego)
+})
 
-H3K27ac_ctx_late$pt_bins <- as.numeric(cut(H3K27ac_ctx_late$ctx_pt, 50, labels=1:50))
-H3K27me3_ctx_late$pt_bins <- as.numeric(cut(H3K27me3_ctx_late$ctx_pt, 50, labels=1:50))
-H3K4me3_ctx_late$pt_bins <- as.numeric(cut(H3K4me3_ctx_late$ctx_pt, 50, labels=1:50))
-rna_ctx_late$pt_bins <- as.numeric(cut(rna_ctx_late$ctx_pt, 50, labels=1:50))
+cluster_ego_rna_bg <- map_dfr(cluster_ego, ~if (!is.null(.x)){as_tibble(.x@result)} , .id='dtw_clust') %>% 
+    # filter(ONTOLOGY=='BP', p.adjust<0.01) %>% 
+    mutate(ngenes = as.numeric(str_replace(GeneRatio, '\\d+/(\\d+)', '\\1'))) %>% 
+    mutate(ngenes_enrich = as.numeric(str_replace(GeneRatio, '(\\d+)/\\d+', '\\1'))) %>% 
+    mutate(bggenes = as.numeric(str_replace(BgRatio, '\\d+/(\\d+)', '\\1'))) %>% 
+    mutate(bggenes_enrich = as.numeric(str_replace(BgRatio, '(\\d+)/\\d+', '\\1'))) %>% 
+    mutate(oddsratio=(ngenes_enrich/ngenes)/(bggenes_enrich/bggenes)) %>% 
+    arrange(oddsratio) %>% 
+    mutate(Description=factor(Description, levels=unique(.$Description))) %>% 
+    arrange(p.adjust) 
 
-feature_plot(rna_ctx_late, features=c('pt_bins', 'NEUROD2', 'STMN2'), order=T)
-feature_plot(H3K27ac_ctx_late, features=c('pt_bins', 'crna_NEUROD2', 'crna_STMN2'), order=T)
-
-rna_ctx_late <- aggregate_assay(rna_ctx_late, 'pt_bins', assay='RNA')
-H3K27ac_ctx_late <- aggregate_assay(H3K27ac_ctx_late, 'pt_bins', assay='cRNA')
-H3K27me3_ctx_late <- aggregate_assay(H3K27me3_ctx_late, 'pt_bins', assay='cRNA')
-H3K4me3_ctx_late <- aggregate_assay(H3K4me3_ctx_late, 'pt_bins', assay='cRNA')
-
-rna_clusters <- rna_ctx_late@assays$RNA@misc$summary$pt_bins[as.character(1:50), ]
-H3K27ac_clusters <- H3K27ac_ctx_late@assays$cRNA@misc$summary$pt_bins[as.character(1:50), ]
-H3K27me3_clusters <- H3K27me3_ctx_late@assays$cRNA@misc$summary$pt_bins[as.character(1:50), ]
-H3K4me3_clusters <- H3K4me3_ctx_late@assays$cRNA@misc$summary$pt_bins[as.character(1:50), ]
-
-rna_ctx_late <- FindVariableFeatures(rna_ctx_late, nfeatures=1000)
-H3K27ac_ctx_late <- FindVariableFeatures(H3K27ac_ctx_late, assay='cRNA', nfeatures=1000)
-H3K27me3_ctx_late <- FindVariableFeatures(H3K27me3_ctx_late, assay='cRNA', nfeatures=1000)
-H3K4me3_ctx_late <- FindVariableFeatures(H3K4me3_ctx_late, assay='cRNA', nfeatures=1000)
-
-
-# RNA + H3K27ac
-var_feats <- VariableFeatures(rna_ctx_late) %>% intersect(rownames(H3K27ac_ctx_late[['cRNA']]))
-# var_feats <- VariableFeatures(rna_ctx_late) %>% intersect(VariableFeatures(H3K27ac_ctx_late[['cRNA']]))
-
-var_feats <- c(
-    'NEUROD6', 'NEUROD2', 'STMN2', 'GLI3', 'BCL11B', 'VIM', 'GAD2', 'RORB', 'NRN1', 'ZIC1',
-    'SOX5', 'WNT16', 'FOXO1', 'GRIN2A', 'ONECUT1', 'ETS1', 'BNC2', 'PLP1', 'SAMD11', 'WNT7B'
-)
-
-rna_H3K27ac_cor <- Pando::sparse_cor(t(rna_clusters[,var_feats]), t(H3K27ac_clusters[,var_feats]))
-pheatmap::pheatmap(t(rna_H3K27ac_cor), cluster_rows=F, cluster_cols=F)
-
-rna_H3K27ac_align <- dtw(
-    x = as.matrix(1-rna_H3K27ac_cor),
-    keep=T
-)
-
-rna_H3K27ac_align_df <- tibble(
-    RNA_idx = rna_H3K27ac_align$index1,
-    H3K27ac_idx = rna_H3K27ac_align$index2
-)
-
-ggplot(rna_H3K27ac_align_df, aes(RNA_idx, H3K27ac_idx)) +
-    geom_abline() +
-    geom_line()
-
-
-# RNA + H3K4me3
-var_feats <- VariableFeatures(rna_ctx_subs) %>% intersect(VariableFeatures(H3K4me3_ctx_subs, assay='cRNA'))
-
-rna_H3K4me3_cor <- Pando::sparse_cor(t(rna_clusters[,var_feats]), t(H3K4me3_clusters[,var_feats]))
-pheatmap::pheatmap(t(rna_H3K4me3_cor), cluster_rows=F, cluster_cols=F)
-
-rna_H3K4me3_align <- dtw(
-    x = as.matrix(1-rna_H3K4me3_cor)
-)
-plot(rna_H3K4me3_align)
-
-rna_H3K4me3_align_df <- tibble(
-    RNA_idx = rna_H3K4me3_align$index1,
-    H3K4me3_idx = rna_H3K4me3_align$index2
-)
-
-
-ggplot(rna_H3K4me3_align_df, aes(RNA_idx, H3K4me3_idx)) +
-    geom_abline() +
-    geom_line()
-
-
-# RNA + H3K27me3
-var_feats <- VariableFeatures(rna_ctx_subs) %>% intersect(VariableFeatures(H3K27me3_ctx_subs, assay='cRNA'))
-
-rna_H3K27me3_cor <- Pando::sparse_cor(t(rna_clusters[,var_feats]), t(H3K27me3_clusters[,var_feats]))
-pheatmap::pheatmap(t(rna_H3K27me3_cor), cluster_rows=F, cluster_cols=F)
-
-rna_H3K27me3_align <- dtw(
-    x = as.matrix(rna_H3K27me3_cor)
-)
-plot(rna_H3K27me3_align)
-
-
-rna_H3K27me3_align_df <- tibble(
-    RNA_idx = rna_H3K27me3_align$index1,
-    H3K27me3_idx = rna_H3K27me3_align$index2
-)
-
-ggplot(rna_H3K27me3_align_df, aes(RNA_idx, H3K27me3_idx)) +
-    geom_abline() +
-    geom_line()
-
-
-
-
+cluster_ego_rna_bg %>% write_tsv('data/trajectories/ctx/all_mod_expr_dtw_30clust_go_enrich_rna_bg.tsv')
 
 
 

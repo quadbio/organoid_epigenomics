@@ -1,4 +1,6 @@
+library(tidyverse)
 source('~/scripts/single_cell/de.R')
+source('~/scripts/single_cell/wrapper.R')
 source('~/scripts/single_cell/atac.R')
 source('~/scripts/perturbator/de.R')
 
@@ -14,18 +16,18 @@ setwd('~/projects/cutntag/')
 
 
 #### Read data ####
-marks <- read_rds('data/CT/all_marks_list_v3.3motifs.rds')
+marks <- read_rds('data/all_marks_list_v3.3motifs.rds')
 rna <- read_rds('data/RNA/RNA_all_srt_v2.2matched.rds')
-
 
 drugs_d158_H3K27me3 <- read_rds('data/drugs/drugs_d15_d18_A395_v1_v1.2lines_srt.rds')
 drugs_d158_H3K27ac <- read_rds('data/drugs/drugs_d15_d18_A485_v1_v1.2lines_srt.rds')
 
-goi <- c('DLX3', 'TFAP2A', 'NEUROD1', 'DLX6', 'LHX5', 'RSPO3', 'WLS', 'WNT3A')
+#### Feature plots ####
+goi <- c('DLX3', 'TFAP2A', 'NEUROD1', 'DLX6', 'LHX5', 'RSPO3', 'WLS', 'WNT3A', 'FOXG1')
 feature_plot(rna, features=goi, reduction='cssumap', order=T)
 feature_plot(drugs_d158_H3K27me3, features=goi, order=T, reduction='humap')
 
-dim_plot(drugs_d158_H3K27ac, reduction='humap')
+dim_plot(drugs_d158_H3K27me3, reduction='humap', label=T)
 
 
 #### Get detected peaks ####
@@ -63,7 +65,6 @@ H3K4me3_early_clusters <- marks$H3K4me3@meta.data %>%
     pull(clusters) %>% unique()
 H3K4me3_early_detect <- marks$H3K4me3@assays$peaks_bin@misc$summary$clusters[H3K4me3_early_clusters, ]
 H3K4me3_detected_early <- colnames(H3K4me3_early_detect)[colMaxs(H3K4me3_early_detect)>0.01]
-
 
 
 
@@ -170,6 +171,7 @@ H3K27me3_A395_fc$peak <- factor(H3K27me3_A395_fc$peak, levels=H3K27me3_A395_mean
 H3K27me3_A395_fc %>% write_tsv('data/drugs/drugs_CT_A395_H3K27me3_peaks_logfc.tsv')
 
 
+
 #### Join with DE results ####
 H3K27me3_A395_fc <- read_tsv('data/drugs/drugs_CT_A395_H3K27me3_peaks_logfc.tsv')
 
@@ -246,49 +248,19 @@ dim_plot(drugs_d158_H3K27me3, reduction='humap', group.by='inhib_annotation') +
 ggsave('plots/paper/fig4/fig4_drugs_d158_H3K27me3_samples_umap.png', width=6,height=5)
 
 
+cluster_colors <- c('#6c2d76', '#ab4f93', '#b376a3', '#715aa3','#398fa5' , '#bc92be', '#f78f1e' ,'#044972')
+dim_plot(drugs_d158_H3K27me3, reduction='humap', group.by='RNA_snn_res.0.2') +
+    scale_color_manual(values=cluster_colors)
 
-#### Get tree shape for graph ####
-library(tidygraph)
-library(ggraph)
-
-cluster_srt <- read_rds('data/RNA/all_RNA_marks_combined_clusters_srt.rds')
-cluster_graph <- read_rds('data/RNA/all_RNA_cluster_graph.rds')
-cluster_graph %>% as_tibble() %>% pull(to_lineage) %>% unique()
-
-cluster_srt %>% dim_plot(group.by='celltype_jf', reduction='umap', pt.size=5)
+ggsave('plots/paper/fig4/fig4_drugs_d158_H3K27me3_samples_umap.png', width=6,height=5)
 
 
-lineage_order <- c('nn', 'mesen_rhom', 'EB', 'nect', 'ctx', 'astro', 'OPC', 'dien', 'chp', 'retina')
-lineage_pos <- c(0.5,0.5,1,1,1,1.5,1.5,2,2.25,2.5)
-
-pos_df <- tibble(
-    lineage=lineage_order,
-    tree_pos=lineage_pos
-)
-
-cluster_graph_ <- cluster_graph %N>% 
-    inner_join(pos_df) %>% 
-    mutate(
-        tree_pos = as.numeric(case_when(
-            celltype=='rhom_ex' ~ '0.35',
-            celltype=='mesen_ex' ~ '0.65',
-            T ~ as.character(tree_pos)
-        ))
-    )
-
-ggraph(cluster_graph_, x=tree_pos, y=pseudotime_ranks) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(color=celltype), size=3) +
-    scale_color_manual(values=pantone_celltype) +
-    theme_void()
-
-ggsave('plots/paper/fig4/fig4_cluster_celltype_tree.pdf', width=3, height=3.5)
-
-
-cluster_graph_ %>% write_rds('data/RNA/all_RNA_cluster_graph.rds')
 
 
 #### Get DEG sets and compute module score ####
+
+cluster_srt <- read_rds('data/all_RNA_marks_combined_clusters_srt.rds')
+cluster_meta <- read_tsv('data/all_RNA_cluster_meta.tsv')
 
 A395_global_de <- read_tsv('data/drugs/results/diff_expression/drugs_d15_d18_A395_global_inhib_de.tsv') %>% mutate(padj=p.adjust(p_val, 'fdr'))
 A395_global_inhib_de <- read_tsv('data/drugs/results/diff_expression/drugs_d15_d18_A395_concs_global_inhib_de.tsv') %>% mutate(padj=p.adjust(p_val, 'fdr'))
@@ -325,10 +297,10 @@ cluster_srt$switch_nepi_DEG_score <- scale(cluster_srt$H3K27ac_nepi_DEG_score) *
 cluster_srt$switch_global_DEG_score <- scale(cluster_srt$H3K27ac_global_DEG_score) * scale(cluster_srt$H3K27me3_global_DEG_score) * sign(scale(cluster_srt$H3K27ac_global_DEG_score) - scale(cluster_srt$H3K27me3_global_DEG_score))
 
 cluster_meta <- cluster_srt@meta.data %>% 
-    as_tibble(rownames='cluster')
+    as_tibble(rownames='cluster') %>% 
+    inner_join(as_tibble(cluster_srt[['tree']]@cell.embeddings, rownames='cluster'))
 
-cluster_graph_meta <- cluster_graph %N>% 
-    inner_join(cluster_meta) %>% 
+cluster_graph_meta <- cluster_meta %>% 
     mutate(
         H3K4me3_scale = scale(H3K4me3_global_DEG_score),
         H3K27me3_scale = scale(H3K27me3_global_DEG_score),
@@ -341,103 +313,173 @@ cluster_graph_meta <- cluster_graph %N>%
 bival_cols <- colorRampPalette(c('#F773A5', '#810F7C', '#75B3D8'))(100)
 print_scale(bival_cols)
 
-p1 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=bivalent_color, size=abs(bivalent_score)), shape=21, stroke=0.2) +
-    scale_size_continuous(range=c(0.2,4)) +
-    scale_fill_gradientn(colors=rev(bival_cols)) +
-    scale_y_reverse() +
-    theme_void()
 
-p2 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=H3K27me3_global_DEG_score, size=H3K27me3_global_DEG_score), shape=21, stroke=0.2) +
+ggplot(cluster_graph_meta, aes(x=tree_1, y=-tree_2)) +
+    geom_point(aes(fill=H3K27me3_global_DEG_score, size=H3K27me3_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.blues)) +
     scale_y_reverse() +
     theme_void()
 
-p3 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=H3K4me3_global_DEG_score, size=H3K4me3_global_DEG_score), shape=21, stroke=0.2) +
+p1 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=bivalent_color, size=abs(bivalent_score)), shape=21, stroke=0.2) +
+    scale_size_continuous(range=c(0.2,4)) +
+    scale_fill_gradientn(colors=rev(bival_cols)) +
+    scale_y_reverse() +
+    theme_void()
+
+p2 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=H3K27me3_global_DEG_score, size=H3K27me3_global_DEG_score), shape=21, stroke=0.2) +
+    scale_size_continuous(range=c(0.2,4)) +
+    scale_fill_gradientn(colors=grad(pals::brewer.blues)) +
+    scale_y_reverse() +
+    theme_void()
+
+p3 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=H3K4me3_global_DEG_score, size=H3K4me3_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.rdpu)) +
     scale_y_reverse() +
     theme_void()
 
-p4 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=RNA_global_DEG_score, size=RNA_global_DEG_score), shape=21, stroke=0.2) +
+p4 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=RNA_global_DEG_score, size=RNA_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.orrd)) +
     scale_y_reverse() +
     theme_void()
 
 p4 / p1 / p2 / p3
-ggsave('plots/paper/fig4/fig4_global_deg_divalent_scores_tree.pdf', width=6, height=5)
+ggsave('plots/paper/fig4/rev_fig4_global_deg_divalent_scores_umap.pdf', width=6, height=7)
     
-ggraph(cluster_graph_meta, x=tree_pos, y=pseudotime_ranks) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(color=celltype), size=3) +
-    scale_color_manual(values=pantone_celltype) +
-    theme_void()
 
-p1 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=RNA_global_DEG_score, size=RNA_global_DEG_score), shape=21, stroke=0.2) +
+
+p1 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=RNA_global_DEG_score, size=RNA_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.orrd)) +
     scale_y_reverse() +
     theme_void()
 
-p2 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=H3K27me3_global_DEG_score, size=H3K27me3_global_DEG_score), shape=21, stroke=0.2) +
+p2 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=H3K27me3_global_DEG_score, size=H3K27me3_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.blues)) +
     scale_y_reverse() +
     theme_void()
 
-p3 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=H3K4me3_global_DEG_score, size=H3K4me3_global_DEG_score), shape=21, stroke=0.2) +
+p3 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=H3K4me3_global_DEG_score, size=H3K4me3_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.rdpu)) +
     scale_y_reverse() +
     theme_void()
 
-p4 <- ggraph(arrange(cluster_graph_meta, H3K27ac_global_DEG_score), x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=H3K27ac_global_DEG_score, size=H3K27ac_global_DEG_score), shape=21, stroke=0.2) +
+p4 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=H3K27ac_global_DEG_score, size=H3K27ac_global_DEG_score), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.ylgn)) +
     scale_y_reverse() +
     theme_void()
 
 p1 / p2 / p3 / p4 + plot_layout(guides='collect')
-ggsave('plots/paper/fig4/fig4_global_deg_scores_tree.pdf', width=6, height=5)
+ggsave('plots/paper/fig4/rev_fig4_global_deg_scores_umap.pdf', width=6, height=7)
 
 
 
 
-p1 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=bivalent_color, size=abs(bivalent_global_DEG_score)), shape=21, stroke=0.2) +
+p1 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=bivalent_color, size=abs(bivalent_global_DEG_score)), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4), limits = c(0,2)) +
     scale_fill_gradientn(colors=rev(bival_cols)) +
     scale_y_reverse() +
     theme_void()
 
-p2 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
-    geom_edge_diagonal(color='grey', alpha=0.3) +
-    geom_node_point(aes(fill=switch_global_DEG_score, size=abs(switch_global_DEG_score)), shape=21, stroke=0.2) +
+p2 <- ggplot(cluster_graph_meta, aes(x=CSSUMAP_1, y=CSSUMAP_2)) +
+    geom_point(aes(fill=switch_global_DEG_score, size=abs(switch_global_DEG_score)), shape=21, stroke=0.2) +
     scale_size_continuous(range=c(0.2,4)) +
     scale_fill_gradientn(colors=grad(pals::brewer.bugn)) +
     scale_y_reverse() +
     theme_void()
 
 p1 / p2
-ggsave('plots/paper/fig4/fig4_global_deg_comb_scores_tree.pdf', width=6, height=2.6)
+ggsave('plots/paper/fig4/rev_fig4_global_deg_comb_scores_umap.pdf', width=6, height=3.5)
+
+
+
+#### Barplots with scores ####
+
+plot_df <- cluster_graph_meta %>% 
+    mutate(
+        is_neuro = celltype_jf%in%c('non_nect', 'astrocytes', 'OPC', 'choroid_plexus'),
+        celltype_coarse = case_when(
+            celltype_jf%in%c('rhom_ex', 'mesen_ex', 'dien_ex', 'ctx_ex') ~ 'neuron',
+            celltype_jf%in%c('nt_npc', 'dien_npc', 'ctx_npc', 'ctx_ip') ~ 'npc',
+            T ~ celltype_jf
+        ),
+        celltype_fac = factor(celltype_coarse,
+                              levels=c(
+                                  'psc', 'nect', 'npc', 'neuron',
+                                  'non_nect', 'choroid_plexus', 'astrocytes', 'OPC'
+                                  )),
+        # celltype_fac = factor(celltype_jf, 
+        #                       levels=c(
+        #                           'psc', 'nect', 'ctx_npc','ctx_ip', 'ctx_ex',
+        #                           'non_nect', 'choroid_plexus', 'astrocytes', 'OPC'
+        #                           ))
+    ) %>% 
+    filter(!is.na(celltype_fac))
+    
+
+
+ggplot(plot_df, aes(cluster, H3K27me3_global_DEG_score, fill=celltype_jf)) +
+    labs(y='Activity score', x='', title='H3K27me3') +
+    no_x_text() +
+    geom_bar(stat='identity')
+
+
+p1 <- ggplot(plot_df, aes(celltype_fac, H3K27me3_global_DEG_score, fill=celltype_fac)) +
+    labs(y='Activity score', x='', title='H3K27me3') +
+    no_x_text()
+ 
+p2 <- ggplot(plot_df, aes(celltype_fac, H3K4me3_global_DEG_score, fill=celltype_fac)) +
+    labs(y='Activity score', x='', title='H3K4me3') +
+    no_x_text()
+ 
+p3 <- ggplot(plot_df, aes(celltype_fac, RNA_global_DEG_score, fill=celltype_fac)) +
+    labs(y='Activity score', x='', title='RNA') +
+    no_x_text()
+ 
+p4 <- ggplot(plot_df, aes(celltype_fac, bivalent_color, fill=celltype_fac)) +
+    labs(y='Activity score', x='Celltype', title='Bivalency') +
+    rotate_x_text(40)
+ 
+(p1 / p2 / p3 / p4) & 
+    no_legend() &    
+    geom_bar(stat='summary') &
+    geom_errorbar(stat='summary', width=0.2, col='darkgrey') &
+    geom_beeswarm(size=0.1, shape=16, corral.width = 1.2) &
+    scale_fill_manual(values=pantone_celltype) &
+    facet_grid(~is_neuro, space='free', scales='free') &
+    rotate_x_text(40) &
+    article_text() &
+    theme(
+        strip.text = element_blank()
+    ) 
+ggsave('plots/paper/fig4/fig4_global_deg_scores_coarse_types_barplot.pdf', width=6, height=15, units='cm')
+ggsave('plots/paper/fig4/fig4_global_deg_scores_coarse_types_barplot.png', width=6, height=15, units='cm')
+   
+
+ggplot(plot_df, aes(celltype_fac, H3K27me3_global_DEG_score, fill=celltype_jf)) +
+    geom_boxplot() +
+    scale_fill_manual(values=pantone_celltype)
+    
+
+ggplot(plot_df, aes(celltype_fac, H3K27me3_global_DEG_score, fill=celltype_jf)) +
+    geom_bar(stat='summary') +
+    geom_errorbar(stat='summary', width=0.2) +
+    scale_fill_manual(values=pantone_celltype)
+    
 
 
 
@@ -672,11 +714,98 @@ ggsave('plots/paper/fig4/fig4_condition_replicate_enrich_boxplot.pdf', width=6, 
 
 
 
-####
+#### 
+
+conc_colors <- c('1'='#A2D9DE', '3'='#3A90B0', '10'='#0B4771', 'DMSO'='#f78f1e')
+
+library(entropy)
+
+perturb_idx <- !str_detect(drugs_d158_H3K27me3$inhib_annotation, 'DMSO')
+comp_ctrl <- drugs_d158_H3K27me3$seurat_clusters[!perturb_idx]
+comp_perturb <- drugs_d158_H3K27me3$seurat_clusters[perturb_idx]
+
+
+drugs_d158_H3K27me3 %>% dim_plot()
+
+entropy(table(comp_ctrl))
+entropy(table(comp_perturb))
+
+inhib_samples <- unique(drugs_d158_H3K27me3$inhib_annotation) %>% set_names()
+
+
+drugs_d158_H3K27me3 <- FindClusters(drugs_d158_H3K27me3, resolution = 0.1)
+
+d158_entropy_sample <- map_dfr(inhib_samples, function(y){
+    sample_idx <- drugs_d158_H3K27me3$inhib_annotation == y
+    cluster_vec <- drugs_d158_H3K27me3$seurat_clusters[sample_idx]
+    return(tibble(
+        entropy = entropy(table(cluster_vec), method='MM')
+    ))
+}, .id='sample')
+
+
+plot_df <- d158_entropy_sample %>% 
+    mutate(
+        perturb=str_replace(sample, '.+_(.+)_d.+', '\\1'),
+        conc=str_replace(sample, '.+_.+_d.+-(\\d+)?', '\\1')
+    ) %>% 
+    mutate(conc=factor(ifelse(perturb=='DMSO', 'DMSO', conc), levels=c('DMSO', '1', '3', '10')))
+
+ggplot(plot_df, aes(conc, entropy, fill=conc)) +
+    geom_bar(stat='summary') +
+    # geom_point(size=3) +
+    stat_summary(geom = 'errorbar') +
+    scale_y_continuous(limits=c(0,NA)) +
+    scale_fill_manual(values=conc_colors)
+
+
+drugs_d158_H3K27me3$age=str_replace(drugs_d158_H3K27me3$inhib_annotation, '.+_(d\\d+).*', '\\1')
+
+drugs_d158_H3K27me3$conc=str_replace(str_replace(drugs_d158_H3K27me3$inhib_annotation, '.+-(\\d+)', '\\1'), '.*DMSO.*', 'DMSO')
+concs <- unique(drugs_d158_H3K27me3$conc) %>% set_names()
+
+d158_entropy_conc <- map_dfr(concs, function(y){
+    sample_idx <- drugs_d158_H3K27me3$conc == y
+    cluster_vec <- drugs_d158_H3K27me3$seurat_clusters[sample_idx]
+    return(tibble(
+        entropy = entropy(table(cluster_vec))
+    ))
+}, .id='conc')
+
+
+plot_df <- d158_entropy_conc %>% 
+    mutate(conc=factor(conc, levels=names(conc_colors)))
+
+ggplot(plot_df, aes(conc=='DMSO', entropy, color=conc)) +
+    # stat_summary(color='grey', size=0.1) +
+    geom_point(size=3) +
+    scale_y_continuous(limits=c(0,2)) +
+    scale_color_manual(values=conc_colors)
 
 
 
+#### Cytotrace for entropy calc ####
+library(CytoTRACE)
+library(entropy)
 
+expr_mat <- drugs_d158_H3K27me3[['RNA']]@counts
+expr_bin <- (drugs_d158_H3K27me3[['RNA']]@data > 0)*1
+
+ctrace <- CytoTRACE::CytoTRACE(as.matrix(expr_mat), ncores=16)
+
+ctrace_df <- ctrace$CytoTRACE %>% 
+    enframe('cell', 'ctrace') %>% 
+    column_to_rownames('cell')
+
+drugs_d158_H3K27me3 <- AddMetaData(drugs_d158_H3K27me3, ctrace_df)
+
+meta <- drugs_d158_H3K27me3@meta.data %>% 
+    as_tibble(rownames='cell') 
+    
+ggplot(meta, aes(conc, ctrace, fill=age)) +
+    geom_boxplot() 
+
+feature_plot(drugs_d158_H3K27me3, features='ctrace', reduction='humap')
 
 
 
@@ -850,16 +979,10 @@ ggplot(plot_df, aes(avg_log2FC, -log10(p_val))) +
 
 
 
-
-
-
-
-
-
-
 #### DE module score for A485 ####
 
-cluster_graph <- read_rds('data/RNA/all_RNA_cluster_graph.rds')
+cluster_graph <- read_rds('data/all_RNA_cluster_graph.rds')
+cluster_meta <- read_tsv('data/all_RNA_cluster_meta.tsv')
 
 A485_global_de <- read_tsv('data/drugs/results/diff_expression/drugs_d15_d18_A485_global_inhib_de.tsv') %>% mutate(padj=p.adjust(p_val, 'fdr'))
 A485_global_inhib_de <- read_tsv('data/drugs/results/diff_expression/drugs_d15_d18_A485_concs_global_inhib_de.tsv') %>% mutate(padj=p.adjust(p_val, 'fdr'))
@@ -947,5 +1070,146 @@ p2 <- ggraph(cluster_graph_meta, x=pseudotime_ranks, y=tree_pos) +
 
 p1 / p2
 ggsave('plots/paper/fig4/fig4_global_deg_comb_scores_tree.pdf', width=6, height=2.6)
+
+
+
+#### Plot cellrank results ####
+
+cellrank_meta <- read_tsv('data/drugs/drugs_d15_d18_A395_cellrank_probs.tsv')
+colnames(cellrank_meta)[1] <- 'cell'
+cellrank_meta_df <- column_to_rownames(cellrank_meta, 'cell')
+
+drugs_d158_H3K27me3 <- drugs_d158_H3K27me3[, cellrank_meta$cell]
+drugs_d158_H3K27me3 <- AddMetaData(drugs_d158_H3K27me3, cellrank_meta_df)
+
+
+#### DR in cellrank space ####
+library(irlba)
+
+cr_space <- cellrank_meta %>%
+    select(cell, to_psc_ranks, to_nne_ranks, to_neural_crest_ranks, to_neurons_ranks) %>%
+    column_to_rownames('cell') %>% as.matrix()
+
+cr_pca <- pca(cr_space, n=2, to_df=T) %>%
+    inner_join(cellrank_meta)
+
+p1 <- ggplot(cr_pca, aes(PC1, PC2, color=to_psc_ranks)) +
+    geom_point(size=0.5, alpha=0.8) +
+    scale_color_gradientn(colors=gyylgnbu()) +
+    theme_void()
+p2 <- ggplot(cr_pca, aes(PC1, PC2, color=to_nne_ranks)) +
+    geom_point(size=0.5, alpha=0.8) +
+    scale_color_gradientn(colors=gyylgnbu()) +
+    theme_void()
+p1 | p2
+
+
+
+
+#### Cellrank viz ####
+meta <- drugs_d158_H3K27me3@meta.data %>% 
+    as_tibble(rownames='cell')
+
+cr_df <- cellrank_meta %>% 
+    column_to_rownames('cell')
+
+cr_space <- cellrank_meta %>% 
+    column_to_rownames('cell') %>% as.matrix()
+
+
+lin_order <- c('to_nne_ranks', 'to_neural_crest_ranks', 'to_neurons_ranks')
+probs <- cr_space[,lin_order] 
+probs <- probs / colMeans(probs)
+probs <- probs / rowSums(probs)
+
+angle_vec = seq(0, 2*pi, length.out=4)[1:3]
+angle_vec_sin = cos(angle_vec)
+angle_vec_cos = sin(angle_vec)
+
+x = rowSums(t(apply(probs, 1, function(x)x*angle_vec_sin)))
+y = rowSums(t(apply(probs, 1, function(x)x*angle_vec_cos)))
+
+meta$C1 <- x
+meta$C2 <- y
+
+circle_dr <- cbind(x,y)
+colnames(circle_dr) <- NULL
+
+drugs_d158_H3K27me3[['circular']] <- CreateDimReducObject(circle_dr, key='CR_')
+
+
+
+conc_colors <- c('1'='#A2D9DE', '3'='#3A90B0', '10'='#0B4771', 'DMSO'='#f78f1e')
+
+
+drugs_d158_H3K27me3$conc <- str_replace(str_replace(drugs_d158_H3K27me3$inhib_annotation, '.+-(\\d+)', '\\1'), '.*DMSO.*', 'DMSO')
+
+drugs_d158_H3K27me3 <- AddMetaData(drugs_d158_H3K27me3, cr_df)
+
+dim_plot(drugs_d158_H3K27me3, reduction='circular', pt.size=1, split.by='conc') +
+    scale_color_manual(values=cluster_colors)
+
+
+dim_plot(drugs_d158_H3K27me3, reduction='circular', pt.size=1, group.by='conc') +
+    scale_color_manual(values=conc_colors)
+
+
+goi <- c('TFAP2A', 'POU5F1', 'DLX6', 'VIM', 'WLS', 'STMN2')
+feature_plot(drugs_d158_H3K27me3, features=goi, reduction='circular', order=T) &
+    scale_color_gradientn(colors=gyorrd())
+ggsave('plots/paper/fig4/fig4_cellrank_features_circular.pdf', width=10, height=15)
+ggsave('plots/paper/fig4/fig4_cellrank_features_circular.png', width=10, height=15)
+
+
+feature_plot(drugs_d158_H3K27me3, features=c('to_nne', 'to_neural_crest', 'to_neurons'), reduction='circular')
+feature_plot(drugs_d158_H3K27me3, features=c('to_nne_ranks', 'to_neural_crest_ranks', 'to_neurons_ranks'), reduction='circular')
+feature_plot(drugs_d158_H3K27me3, features=c('to_psc', 'to_nne', 'to_neural_crest', 'to_neurons'), reduction='humap')
+
+
+
+
+
+#### Density plots on circular ####
+source('~/scripts/single_cell/cell_density_diff.R')
+
+# knn <- RANN::nn2(Embeddings(drugs_d158_H3K27me3, 'circular')[,1:2], k = 100)
+# knngraph <- FindNeighbors(Embeddings(drugs_d158_H3K27me3, 'circular')[,1:2], k.param = 100)
+
+knn <- RANN::nn2(probs, k = 100)
+knngraph <- FindNeighbors(probs, k.param = 100)
+
+knn_enrich <- get_knn_cmh_enrichment(knn, drugs_d158_H3K27me3$conc != 'DMSO', drugs_d158_H3K27me3$conc == 'DMSO', stratums = drugs_d158_H3K27me3$orig.ident)
+smooth_enrich <- random_walk_with_restart(knn_enrich, knn_mat = as(knngraph$snn, 'Matrix'), num_rounds = 100, alpha = 0.1)
+
+plot_df <- meta %>% 
+    inner_join(enframe(smooth_enrich, 'cell', 'enrich'))
+
+p <- ggplot(plot_df, aes(C1, C2, z=enrich, color=enrich)) +
+    # stat_summary_hex(bins=50, fun='mean') +
+    geom_point(size=0.5) +
+    theme_void() 
+
+pb <- ggplot_build(p)
+clim <- 18
+# p + scale_fill_gradientn(colors=rev(bigrad(pals::brewer.rdbu, bias=1.5)), limits=c(-clim,clim)) 
+p + scale_color_gradientn(colors=rev(bigrad(pals::brewer.rdbu, bias=1.5)), limits=c(-clim,clim))  +
+    labs(color='Local\nenrichment')
+
+ggsave('plots/paper/fig4/fig4_cellrank_treatment_density_circular.png', width=6, height=4)
+ggsave('plots/paper/fig4/fig4_cellrank_treatment_density_circular.pdf', width=6, height=4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

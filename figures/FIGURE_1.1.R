@@ -256,6 +256,54 @@ ggsave('plots/paper/fig1/fig1_H3K27me3_celltype_age_barplot.pdf', width=3, heigh
 
 
 
+#### Plot split by age rather than mark ####
+
+all_meta <- bind_rows('RNA'=rna_meta, 'H3K27ac'=marks_meta$H3K27ac, 'H3K27me3'=marks_meta$H3K27me3, 'H3K4me3'=marks_meta$H3K4me3, .id='modality')
+all_meta <- fct_recode(all_meta$age, '16'='4mo', '32'='8mo', '6'='ret_6w', '12'='ret_12w', '2'='15d', '8'='60d', '4'='35d')
+all_meta$modality <- factor(all_meta$modality, levels=c('RNA', 'H3K27ac', 'H3K4me3', 'H3K27me3'))
+
+p1 <- ggplot(all_meta, aes(modality, fill=age)) +
+    geom_bar() +
+    scale_fill_manual(values=colours_timescale) +
+    scale_y_continuous(expand=c(0,0), breaks=c(0,4000,8000)) +
+    facet_grid(~age_plot, space='free', scales='free') +
+    scale_axis_rangeframe() + theme_rangeframe() +
+    no_legend() +
+    no_label() +
+    article_text() +
+    theme(
+        axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        panel.grid.major.y = element_line(size=0.2, color='lightgrey'),
+        plot.margin = unit(c(0,0,0,0), 'lines')
+    ) 
+
+
+p2 <- ggplot(all_meta, aes(modality, fill=celltype_jf)) +
+    geom_bar(position='fill') +
+    scale_fill_manual(values=pantone_celltype) +
+    scale_y_continuous(expand=c(0,0), breaks=c(0,1)) +
+    facet_grid(~age_plot, space='free', scales='free') +
+    scale_axis_rangeframe() + theme_rangeframe() +
+    article_text() +
+    no_legend() +
+    no_label() +
+    rotate_x_text(45) +
+    theme(
+        axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text = element_blank()
+    ) 
+
+p1 / p2 + plot_layout(heights=c(1,3))
+ggsave('plots/paper/fig1/rev_fig1_all_mods_celltype_age_barplot.pdf', width=12, height=4, units='cm') 
+ggsave('plots/paper/fig1/rev_fig1_all_mods_celltype_age_barplot.png', width=12, height=4, units='cm') 
+
+
+
+
+
 #### Tracks ####
 ct_order <- c('psc', 'non_nect', 'nect', 'ctx_npc', 'ctx_ip', 'ctx_ex', 'dien_npc', 'dien_ex', 
               'nt_npc', 'mesen_ex', 'rhom_ex', 'RPC', 'RGC', 'astrocytes', 'OPC', 'choroid_plexus')

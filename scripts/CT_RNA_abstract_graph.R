@@ -3,7 +3,6 @@ source('~/scripts/single_cell/de.R')
 source('~/scripts/perturbator/de.R')
 
 library(Pando)
-library(destiny)
 
 setwd('~/projects/cutntag/')
 
@@ -15,21 +14,11 @@ rna <- read_rds('data/RNA/RNA_all_srt_v2.2matched.rds')
 
 cluster_corr_df <- read_tsv('data/RNA/integration/cluster_corr_df.tsv')
 
-
 cluster_meta <- as_tibble(rna@meta.data, rownames='cell') %>%
     inner_join(as_tibble(rna[['cssumap']]@cell.embeddings, rownames='cell')) %>%
     group_by(clusters, lineage, state, celltype_jf) %>%
     summarize(CSSUMAP_1=mean(CSSUMAP_1), CSSUMAP_2=mean(CSSUMAP_2)) %>%
     filter(celltype_jf!='other')
-
-
-meta <- as_tibble(seurat_obj@meta.data, rownames='cell') %>%
-    inner_join(as_tibble(seurat_obj[['umap']]@cell.embeddings, rownames='cell'))
-
-ggplot(meta, aes(UMAP_1, UMAP_2, fill=lineage)) +
-    geom_point(shape=16, color='black') +
-    theme_void()
-
 
 
 #### Get matches ####
@@ -113,52 +102,54 @@ cluster_srt %>% write_rds('data/all_RNA_marks_combined_clusters_srt.rds')
 
 
 
-#### Add FR embedding ####
-data('motif2tf')
-
+#### Add FR embedding for neuronal only ####
 cluster_srt <- read_rds('data/all_RNA_marks_combined_clusters_srt.rds')
-cluster_meta <- read_tsv('data/all_RNA_cluster_meta.tsv')
+cluster_meta <- read_tsv('data/noastro_RNA_cluster_meta.tsv')
 cluster_fr <- cluster_meta %>%
     select(clusters, FR1, FR2) %>%
     column_to_rownames('clusters')
 
-cluster_srt <- AddMetaData(cluster_srt, cluster_fr)
-cluster_srt$lineage <- case_when(
-    cluster_srt$celltype_jf %in% c('mesen_ex', 'rhom_ex', 'nt_npc') ~ 'mesen_rhom',
-    cluster_srt$celltype_jf %in% c('ctx_npc', 'ctx_ip', 'ctx_ex') ~ 'ctx',
-    cluster_srt$celltype_jf %in% c('RPC', 'RGC') ~ 'retina',
-    cluster_srt$celltype_jf %in% c('dien_npc', 'dien_ex') ~ 'dien',
-    cluster_srt$celltype_jf %in% c('nect') ~ 'nect',
-    cluster_srt$celltype_jf %in% c('psc') ~ 'EB',
-    cluster_srt$celltype_jf %in% c('astrocytes') ~ 'astro',
-    cluster_srt$celltype_jf %in% c('non_nect') ~ 'nn',
-    cluster_srt$celltype_jf %in% c('choroid_plexus') ~ 'chp',
-    cluster_srt$celltype_jf %in% c('OPC') ~ 'OPC'
+noastro_cluster_srt <- subset(cluster_srt, cells=cluster_meta$clusters)
+
+noastro_cluster_srt <- AddMetaData(noastro_cluster_srt, cluster_fr)
+noastro_cluster_srt$lineage <- case_when(
+    noastro_cluster_srt$celltype_jf %in% c('mesen_ex', 'rhom_ex', 'nt_npc') ~ 'mesen_rhom',
+    noastro_cluster_srt$celltype_jf %in% c('ctx_npc', 'ctx_ip', 'ctx_ex') ~ 'ctx',
+    noastro_cluster_srt$celltype_jf %in% c('RPC', 'RGC') ~ 'retina',
+    noastro_cluster_srt$celltype_jf %in% c('dien_npc', 'dien_ex') ~ 'dien',
+    noastro_cluster_srt$celltype_jf %in% c('nect') ~ 'nect',
+    noastro_cluster_srt$celltype_jf %in% c('psc') ~ 'EB',
+    noastro_cluster_srt$celltype_jf %in% c('astrocytes') ~ 'astro',
+    noastro_cluster_srt$celltype_jf %in% c('non_nect') ~ 'nn',
+    noastro_cluster_srt$celltype_jf %in% c('choroid_plexus') ~ 'chp',
+    noastro_cluster_srt$celltype_jf %in% c('OPC') ~ 'OPC'
 )
 
-cluster_srt[['fr']] <- CreateDimReducObject(as.matrix(cluster_fr), key = 'FR_')
+noastro_cluster_srt[['fr']] <- CreateDimReducObject(as.matrix(cluster_fr), key = 'FR_')
 
-cluster_srt@active.assay <- 'H3K27ac_RNA'
+noastro_cluster_srt@active.assay <- 'H3K27ac_RNA'
 
-dim_plot(cluster_srt, group.by='celltype_jf', pt.size=4, reduction='fr') +
+dim_plot(noastro_cluster_srt, group.by='celltype_jf', pt.size=4, reduction='fr') +
     scale_color_manual(values=pantone_celltype)
 
 feature_plot(
-    cluster_srt,
+    noastro_cluster_srt,
     reduction='fr',
     features=c('GLI3', 'VSX2', 'LHX5', 'RSPO3', 'POU5F1', 'NFIB'),
     pt.size=1, order=T
 )
+
+noastro_cluster_srt@active.assay <- 'H3K27me3_RNA'
 
 feature_plot(
-    cluster_srt,
+    noastro_cluster_srt,
     reduction='fr',
     features=c('GLI3', 'VSX2', 'LHX5', 'RSPO3', 'POU5F1', 'NFIB'),
     pt.size=1, order=T
 )
 
 
-cluster_srt %>% write_rds('data/all_RNA_marks_combined_clusters_srt.rds')
+noastro_cluster_srt %>% write_rds('data/noastro_RNA_marks_combined_clusters_srt.rds')
 
 
 

@@ -19,7 +19,7 @@ rank_cols <- function(x){
 }
 
 #### Read data ###
-marks  <- read_rds('data/CT/all_marks_list_v3.4lines.rds')
+marks  <- read_rds('data/all_marks_list_v3.4lines.rds')
 rna <- read_rds('data/RNA/RNA_all_srt_v2.3lines.rds')
 rna_pt_meta <- read_tsv('data/RNA/cellrank/RNA_full_cellrank_probs.tsv') %>% 
     dplyr::rename('cell'=1) %>% 
